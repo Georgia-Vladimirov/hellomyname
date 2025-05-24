@@ -1,0 +1,581 @@
+show running-config
+hostname isp
+object-group network local_net
+ip address-range 172.16.5.1-172.16.5.2
+ip address-range 172.16.4.1-172.16.4.2
+exit
+username admin
+password P@ssw0rd
+exit
+line console
+exec-timeout 65535
+exit
+interface gi1/0/1
+description "TO_BR-RTR"
+ip firewall disable
+ip address 172.16.5.1/28
+exit
+interface gi1/0/2
+description "TO_INTERNET"
+ip firewall disable
+ip address dhcp
+exit
+interface gi1/0/3
+description "TO_HQ-RTR"
+ip firewall disable
+ip address 172.16.4.1/28
+exit
+nat source
+ruleset snat
+to interface gi1/0/2
+rule 1
+match source-address local_net
+action source-nat interface
+enable
+exit
+exit
+exit
+ip route 0.0.0.0/0 192.168.138.2
+ip route 192.168.0.64/28 172.16.4.2
+ip route 192.168.1.0/27 172.16.5.2
+clock timezone gmt +3
+
+
+
+
+show running-config
+hostname br-rtr
+object-group network local_net
+ip address-range 192.168.1.1-192.168.1.30
+exit
+username net_admin
+password P@ssw0rd
+privilege 15
+exit
+line console
+exec-timeout 65535
+exit
+key-chain ospfkey
+key 1
+key-string ascii-text encrypted Egor
+exit
+exit
+router ospf 1
+area 0.0.0.0
+enable
+exit
+enable
+exit
+interface gi1/0/1
+description "TO_BR-SRV"
+ip firewall disable
+ip address 192.168.1.1/27
+ip ospf instance 1
+ip ospf
+exit
+interface gi1/0/2
+description "TO_ISP"
+ip firewall disable
+ip address 172.16.5.2/28
+exit
+tunnel gre 1
+ttl 16
+mtu 1400
+ip firewall disable
+local address 172.16.5.2
+remote address 172.16.4.2
+ip address 172.16.1.2/30
+ip ospf instance 1
+ip ospf authentification key-chain ospfkey
+ip ospf authentification algorithm md5
+ip ospf network point-to-point
+ip ospf
+enable
+exit
+nat source
+ruleset snat
+to interface gi1/0/2
+rule 1
+match source-address local_net
+action source-nat interface
+enable
+exit
+exit
+exit
+ip route 0.0.0.0/0 172.16.5.1
+ip route 192.168.138.0/24 172.16.5.1
+clock timezone gmt +3
+
+
+
+show running-config
+hostname hq-rtr
+object-group network local_net
+ip address-range 192.168.0.65-192.168.0.78
+ip address-range 192.168.0.1-192.168.0.62
+ip address-range 192.168.0.81-192.168.0.88
+exit
+object-group network HQ_NET
+ip address-range 192.168.0.66-192.168.0.70
+exit
+username net_admin
+password P@ssw0rd
+privilege 15
+exit
+line console
+exec-timeout 65535
+exit
+key-chain ospfkey
+key 1
+key-string ascii-text encrypted Egor
+exit
+exit
+router ospf 1
+area 0.0.0.0
+enable
+exit
+enable
+exit
+interface gi1/0/1
+description "TO_HQ-NET"
+ip ospf instance 1
+exit
+interface gi1/0/1.100
+ip firewall disable
+ip address 192.168.0.1/26
+ip ospf instance 1
+ip ospf
+exit
+interface gi1/0/1.200
+ip firewall disable
+ip dhcp server address 192.168.0.66
+ip address 192.168.0.65/28
+ip ospf instance 1
+ip ospf
+exit
+interface gi1/0/1.999
+ip firewall disable
+ip address 192.168.0.81/29
+ip ospf instance 1
+ip ospf
+exit
+interface gi1/0/2
+description "TO_ISP"
+ip firewall disable
+ip address 172.16.4.2/28
+exit
+tunnel gre 1
+ttl 16
+mtu 1400
+ip firewall disable
+local address 172.16.4.2
+remote address 172.16.5.2
+ip address 172.16.1.1/30
+ip ospf instance 1
+ip ospf authentification key-chain ospfkey
+ip ospf authentification algorithm md5
+ip ospf network point-to-point
+ip ospf
+enable
+exit
+nat source
+ruleset snat
+to interface gi1/0/2
+rule 1
+match source-address local_net
+action source-nat interface
+enable
+exit
+exit
+exit
+ip dhcp-server
+ip dhcp-server pool HQ-NET
+network 192.168.0.64/28
+domain-name au-team.irpo
+address-range 192.168.0.67-192.168.0.78
+default-router 192.168.0.65
+dns-server 192.168.0.2
+exit
+ip route 0.0.0.0/0 172.16.4.1
+ip route 192.168.138.0/24 172.16.4.1
+clock timezone gmt +3
+
+
+
+hostnamectl hostname br-srv
+hostname
+cat /etc/net/ifaces/ens192/options
+static
+cat /etc/net/ifaces/ens192/ipv4address
+192.168.1.2/27
+cat /etc/net/ifaces/ens192/ipv4route
+default via 192.168.1.1
+cat /etc/net/ifaces/ens192/resolv.conf
+search au-team.irpo
+nameserver 192.168.0.2
+cat /etc/sysconfig/network | grep GATEWAY
+GATEWAY=192.168.1.1
+cat /etc/resolvconf.conf | grep name_servers
+nameservers=192.168.0.2
+
+useradd -m -u 1010 sshuser
+passwd P@ssw0rd
+cat /etc/sudoers.d/sshuser
+sshuser ALL = (ALL) NOPASSWD: ALL
+usermod -aG wheel sshuser
+su - sshuser
+whoami
+sudo whoami
+
+
+cat /etc/openssh/sshd_config | grep 2024 MaxAuth Banner AllowUsers
+Port 2024
+MaxAuthTries 2
+Banner /etc/openssh/banner
+AllowUsers sshuser
+cat /etc/openssh/banner
+______Banner_____
+
+
+ON CLI
+cat /etc/nat/static/ifaces/ens192/options
+dhcp
+ssh sshuser@192.168.0.2 -p 2024
+apt-get update
+apt-get install bind bind-utils
+cat /var/lib/bind/etc/options.conf
+listen-on { 127.0.0.1; 192.168.0.0/24; 192.168.1.0/24; };
+forwarders { 8.8.8.8; };
+recursion yes;
+allow-query { 127.0.0.1; 192.168.0.0/24; 192.168.1.0/24; };
+allow-query-cache 127.0.0.1; 192.168.0.0/24; 192.168.1.0/24; };
+allow-recursion { 127.0.0.1; 192.168.0.0/24; 192.168.1.0/24;} };
+
+named-checkconf
+rndc-confgen
+cat /var/lib/bind/etc/rndc.key
+''''
+named-checkconf
+systemctl restart network
+systemctl restart bind
+systemctl enable bind 
+systemctl status bind
+cat /etc/nat/static/ifaces/ens192/resolv.conf
+nameserver 8.8.8.8
+search au-team.irpo
+nameserver 127.0.0.1
+nameserver 192.168.0.2
+dig ya.ru
+
+cat /var/lib/bind/etc/local.conf
+zone "au-team.irpo" {
+type master;
+file "au-team.irpo.db";
+};
+zone "0.168.192.in-addr,arpa" {
+type master;
+file "au-team.irpo_rev.db";
+};
+zone "1.168.192.in-addr.arpaa" {
+type master;
+file "au-team.irpo_br_rev.db";
+};
+
+cp /var/lib/bind/etc/zone/localdomain /var/lib/bind/etc/zone/au-team.irpo.db
+cat /var/lib/bind/etc/zone/au-team.irpo.db
+
+____ au-team.irpo. root.au-team.irpo.
+
+IN NS au-team.irpo.
+IN  192.168.0.2
+hq-rtr IN A 192.168.0.1
+br-rtr IN A 192.168.1.1
+hq-srv IN A 192.168.0.2
+hq-cli IN A 192.168.0.67
+br-srv IN A 192.168.1.2
+moodle IN CNAME hq-rtr
+wikii IN CNAME hq-rtr
+
+named-checkconf
+systemctl restart bind
+dig hq-srv
+
+cp /var/lib/bind/etc/zone/127.in-addr.arpa /var/lib/bind/etc/zone/au-team.irpo_rev.db
+cat /var/lib/bind/etc/zone/au-team.irpo_rev.db
+
+____ au-team.irpo. root.au-team.irpo.
+
+IN NS au-team.irpo.
+IN  192.168.0.2
+1 IN PTR hq-rtr.au-team.irpo
+2 IN PTR hq-srv.au-team.irpo
+67 IN PTR hq-cli.au-team.irpo
+
+named-checkconf
+systemctl restart bind
+dig -x 192.168.0.2
+ping hq-rtr
+
+
+timedatectl status
+
+
+
+Module 2
+
+1)
+apt-get install task-samba-dc 
+for service in smb nmb krb5kdc slapd bind; do systemctl disable $service; systemctl stop $service; done
+rm -f /etc/samba/smb.conf
+rm -rf /var/lib/samba
+rm -rf /var/cache/samba
+mkdir -p /var/lib/samba/sysvol
+
+samba-tool domain provision ИЛИ samba-tool domain provision –user-rfc2307
+Realm: AU-TEAM.IRPO
+Domain: AU-TEAM
+Server Role: dc
+DNS backend: SAMBA_INTERNAL
+DNS Server: IP_DNS_SERVER
+P@ssw0rd
+P@ssw0rd
+systemctl unmask samba-ad-dc
+systemctl enable samba-ad-dc
+systemctl start samba-ad-dc
+cp /var/lib/samba/private/krb5.conf /etc/krb5.conf
+sudo samba-tool group add hq
+samba-tool user create user1.hq "SecurePassword1"
+samba-tool group addmembers hq user1.hq
+systemctl restart samba-ad-dc
+
+
+на HQ-CLI
+sudo apt-get install realmd samba-common-bin krb5-user packagekit
+sudo realm join --user=Administrator au-team.irpo
+cat /etc/sudoers.d/hq
+%hq ALL=(ALL) NOPASSWD:/bin/cat,/bin/grep,/usr/bin/id
+cat /opt/import_users.sh
+#!/bin/bash
+CSV_FILE="/opt/users.csv"
+while IFS=, read -r username password group; do
+    samba-tool user create "$username" "$password" --home-directory="/home/$username" --uid="$username" 
+    samba-tool group addmembers "$group" "$username"
+done < "$CSV_FILE" 
+
+chmod +x /opt/import_users.sh
+sudo /opt/import_users.sh
+
+
+
+2)ON HQ-SRV:
+lsblk
+mdadm --zero-superblock --force /dev/sd{b,c,d}
+wipefs --all --force /dev/sd{b,c,d}
+mdadm --create /dev/md0 -l 5 -n 3 /dev/sd{b,c,d}
+lsblk
+mkfs -t ext4 /dev/md0
+mkdir /etc/mdadm
+echo "DEVICE partitions" > /etc/mdadm/mdadm.conf
+mdadm --detail --scan | awk '/ARRAY/ {print}' >> /etc/mdadm/mdadm.conf
+mkdir /mnt/raid5
+cat /etc/fstab
+/dev/md0  /mnt/raid5  ext4  defaults  0  0
+mount -a
+df -h
+apt-get install -y nfs-{server,utils}
+mkdir /mnt/raid5/nfs
+chmod 766 /mnt/raid5/nfs
+cat /etc/exports
+/mnt/raid5/nfs 192.168.0.64/28(rw,no_root_squash)
+exportfs -arv
+systemctl enable --now nfs-server
+cd /mnt/raid5/nfs
+touch 1.txt
+
+ON HQ-CLI
+apt-get install -y nfs-{utils,clients}
+mkdir /mnt/nfs
+chmod 777 /mnt/nfs
+192.168.0.2:/mnt/raid5/nfs  /mnt/nfs  nfs  defaults  0  0
+mount -a
+df -h
+cd /mnt/nfs
+ls
+
+3)
+
+4)ON BR-SRV
+cat /etc/ansible/hosts
+[all]
+HQ-SRV ansible_host=192.168.0.2 ansible_port=2024  ansible_user=sshuser ansible_python_interpreter=/usr/bin/python3.9
+HQ-CLI ansible_host=192.168.0.67 ansible_user=sshuser ansible_python_interpreter=/usr/bin/python3.9
+HQ-RTR ansible_host=172.16.4.2 ansible_user=sshuser ansible_python_interpreter=/usr/bin/python3.9
+BR-RTR ansible_host=172.16.5.2 ansible_user=sshuser ansible_python_interpreter=/usr/bin/python3.9
+ansible-inventory --list -y
+ansible all -m ping -i /etc/ansible/hosts
+
+5)ON BR-SRV
+sudo apt update
+sudo apt install docker.io docker-compose -y
+sudo systemctl start docker
+sudo systemctl enable docker
+docker --version
+docker-compose --version
+nano ~/wiki.yml
+version: '3.8'
+services:
+  mariadb:
+    image: mariadb
+    container_name: mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: mediawiki
+      MYSQL_USER: wiki
+      MYSQL_PASSWORD: WikiP@ssw0rd
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+  wiki:
+    image: mediawiki
+    container_name: wiki
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      MEDIAWIKI_DB_HOST: mariadb
+      MEDIAWIKI_DB_NAME: mediawiki
+      MEDIAWIKI_DB_USER: wiki
+      MEDIAWIKI_DB_PASSWORD: WikiP@ssw0rd
+    #volumes:
+    #  - ./LocalSettings.php:/var/www/html/LocalSettings.php
+volumes:
+  mariadb_data: 
+docker-compose -f ~/wiki.yml up -d
+
+
+http:/127.0.0.1:8080
+
+настраиваем
+
+scp -P 2024 ~/LocalSettings.php sshuser@192.168.1.2:/home/sshuser/
+docker-compose -f ~/wiki.yml down
+docker-compose -f ~/wiki.yml logs -f
+docker-compose -f ~/wiki.yml up -d
+
+
+
+6)
+(BR-RTR) ip nat source static tcp 192.168.1.1 80 192.168.1.2 8080
+(BR-RTR) ip nat source static tcp 192.168.1.1 2024 192.168.1.2 2024
+(HQ-RTR) ip nat source static tcp 192.168.0.1 2024 192.168.1.2 2024
+
+
+
+7)
+ON HQ-SRV
+sudo apt update
+sudo apt install apache2 mariadb-server php php-mysql libapache2-mod-php -y
+sudo apt install php-xml php-intl php-zip php-curl php-gd php-mbstring php-soap php-opcache php-ldap php-bcmath -y
+sudo systemctl start apache2
+sudo systemctl enable apache2
+sudo systemctl start mariadb
+sudo systemctl enable mariadb
+sudo mysql_secure_installation
+sudo mysql -u root -p
+CREATE DATABASE moodledb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'moodle'@'localhost' IDENTIFIED BY 'P@ssw0rd';
+GRANT ALL PRIVILEGES ON moodledb.* TO 'moodle'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+
+cd /tmp
+wget https://docs.tenebraefox.ru/files/moodle.tgz
+sudo tar -xvzf moodle.tgz -C /var/www/html/
+sudo mkdir /var/moodledata
+sudo chmod 777 /var/moodledata
+sudo chown -R www-data:www-data /var/www/html/moodle
+sudo chmod -R 755 /var/www/html/moodle
+sudo nano /etc/apache2/sites-available/moodle.conf  
+wget https://docs.tenebraefox.ru/files/moodle.conf
+
+<VirtualHost *:80>
+    DocumentRoot /var/www/html/moodle
+    ServerName hq-srv
+    <Directory /var/www/html/moodle>
+        AllowOverride All
+        Require all granted
+    </Directory>
+    ErrorLog ${APACHE_LOG_DIR}/moodle_error.log
+    CustomLog ${APACHE_LOG_DIR}/moodle_access.log combined
+</VirtualHost>
+
+sudo a2ensite moodle
+sudo systemctl restart apache2
+sudo nano /etc/php/8.2/php.ini
+max_input_vars = 5000
+sudo systemctl restart apache2
+
+http://<192.168.0.2>/moodle
+
+Следуйте инструкциям установки:
+Укажите директорию данных: /var/moodledata.
+Укажите настройки базы данных:
+Тип базы данных: MariaDB
+Сервер базы данных: localhost
+Имя базы данных: moodledb
+Пользователь базы данных: moodle
+Пароль базы данных: P@ssw0rd
+Создайте пользователя admin и задайте пароль P@ssw0rd.
+Добавьте номер рабочего места на главную страницу.
+
+8)
+sudo apt update
+sudo apt install nginx -y
+sudo systemctl start nginx
+sudo systemctl enable nginx
+cd /etc/nginx/sites-available/
+sudo nano /etc/nginx/sites-available/reverse-proxy.conf
+server {
+    listen 80;
+    server_name moodle.au-team.irpo;
+    location / {
+        proxy_pass http://192.168.10.2; # HQ-SRV с Moodle
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 80;
+    server_name wiki.au-team.irpo;
+    location / {
+        proxy_pass http://192.168.1.2:8080; # BR-SRV с MediaWiki
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+sudo ln -s /etc/nginx/sites-available/reverse-proxy.conf /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+sudo nano /etc/hosts
+192.168.0.2 moodle.au-team.irpo
+192.168.0.2 wiki.au-team.irpo
+curl http://moodle.au-team.irpo
+curl http://wiki.au-team.irpo
+
+9)
+cd /tmp
+wget https://docs.tenebraefox.ru/files/YandexBrowser.deb
+sudo dpkg -i YandexBrowser.deb
+sudo apt update
+sudo apt -f install
+cd /tmp && wget https://docs.tenebraefox.ru/files/YandexBrowser.deb && dpkg -i YandexBrowser.deb || apt -f install -y
+which yandex-browser
+yandex-browser --version
